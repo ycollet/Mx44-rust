@@ -286,6 +286,30 @@ impl Synth {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.panic();
+        for channel in &mut self.channels {
+            *channel = Channel {
+                program: channel.program,
+                ..Channel::default()
+            };
+        }
+        self.lfo_phase.fill(0.0);
+        self.age = 0;
+    }
+
+    /// A value of `u8::MAX` matches all channels or keys, as in CLAP choke events.
+    pub fn choke(&mut self, channel: u8, key: u8) {
+        for voice in &mut self.voices {
+            if voice.as_ref().is_some_and(|v| {
+                (channel == u8::MAX || v.channel == channel as usize)
+                    && (key == u8::MAX || v.key == key)
+            }) {
+                *voice = None;
+            }
+        }
+    }
+
     pub fn event(&mut self, event: MidiEvent) {
         use MidiEvent::*;
         let channel = match event {

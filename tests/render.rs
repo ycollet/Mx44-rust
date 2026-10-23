@@ -1,3 +1,5 @@
+#![cfg(feature = "standalone")]
+
 use std::{fs, process::Command};
 
 #[test]

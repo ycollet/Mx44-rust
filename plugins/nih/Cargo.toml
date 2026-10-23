@@ -1,0 +1,20 @@
+[package]
+name = "mx44-plugin"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+description = "Mx44 Rust VST3 and CLAP instrument"
+
+[lib]
+name = "mx44_plugin"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+mx44-rust = { path = "../..", default-features = false }
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", rev = "de421011f41a6d10fc8c7a6084e4f4dee0143683" }
+nih_plug_egui = { git = "https://github.com/robbert-vdh/nih-plug.git", rev = "de421011f41a6d10fc8c7a6084e4f4dee0143683" }
+rand = "0.9"
+
+[dev-dependencies]
+clap-sys = { git = "https://github.com/micahrj/clap-sys.git", rev = "25d7f53fdb6363ad63fbd80049cb7a42a97ac156" }
+libloading = "0.8"

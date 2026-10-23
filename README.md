@@ -153,12 +153,74 @@ Files are stereo 16-bit PCM. The final third is reserved for note releases and
 delay tails; long envelope/effect tails may extend beyond the requested length.
 Rendering does not save or modify the session.
 
+## VST3 and CLAP plugins
+
+Both formats use [NIH-plug](https://github.com/robbert-vdh/nih-plug), pinned to a
+specific revision. The standalone app remains unchanged. LV2 is not included.
+
+```sh
+cargo xtask bundle mx44-plugin --release
+```
+
+Bundles are written to:
+
+```text
+target/bundled/Mx44 Rust.vst3
+target/bundled/Mx44 Rust.clap
+```
+
+The build targets the current operating system and CPU architecture; build on
+Linux to produce Linux plugins. The plugin has no ALSA, CPAL or MIDI-device
+dependency: audio and MIDI come exclusively from the host. Its embedded editor
+uses OpenGL/X11 on Linux (install the window-system development packages above).
+NIH-plug dependencies are fetched from Git on the first build.
+
+Copy the bundles into your host's plugin search directories, then rescan:
+
+| Platform | VST3 | CLAP |
+|---|---|---|
+| Linux | `~/.vst3/` | `~/.clap/` |
+| macOS | `~/Library/Audio/Plug-Ins/VST3/` | `~/Library/Audio/Plug-Ins/CLAP/` |
+
+For example, on Linux:
+
+```sh
+mkdir -p ~/.vst3 ~/.clap
+cp -R "target/bundled/Mx44 Rust.vst3" ~/.vst3/
+cp -R "target/bundled/Mx44 Rust.clap" ~/.clap/
+```
+
+Load **Mx44 Rust** as an instrument on a MIDI track. Each instance provides
+stereo output and 32 voices, receives notes/controllers on all 16 MIDI channels,
+and uses **one shared sound** across those channels. Use separate plugin
+instances for independent sounds. There is no audio input, device selector,
+standalone keyboard or automatic access to the standalone session file.
+
+The plugin exposes 131 sound/master parameters for host automation, with stable
+IDs and sample-timed MIDI. Parameter automation is applied at block boundaries;
+sample-accurate parameter automation is deliberately disabled because the pinned
+NIH-plug CLAP wrapper applies a block's first automation event early.
+Master gain is smoothed.
+All operator settings, both matrices, envelopes, LFO and effects are editable
+in its embedded editor and the host's generic parameter editor. The final
+envelope level remains fixed at zero. **Random** changes the sound through the
+host's parameter system without changing master volume; the six factory sounds
+are available from **Load factory sound**. **PANIC** clears voices and effects.
+
+Save your host project or a host preset to retain the sound and editor state.
+Plugin state is managed by the host, not `session.json`. MIDI program changes,
+MPE/polyphonic expression and the standalone's 128-slot bank editor are not
+implemented in the plugin; select factory sounds in the editor instead.
+Envelope edits apply to newly played notes, as in the standalone.
+
 ## Development
 
 ```sh
 cargo fmt --check
-cargo clippy --all-targets -- -D warnings
+cargo clippy --workspace --all-targets -- -D warnings
 cargo test
+cargo test --workspace
+cargo test -p mx44-rust --no-default-features
 ```
 
 The DSP and MIDI parser are in the library; the audio/MIDI runtime and editor
@@ -171,6 +233,19 @@ not a substitute for conservative monitoring volume.
 
 The current implementation has been built and smoke-tested on macOS. Linux
 audio/MIDI hardware integration has not yet been verified on a Linux host.
+Plugin tests exercise CLAP discovery, parameter/state round trips, stereo
+processing and sample-timed note/choke events through NIH-plug's actual CLAP
+entry point. Third-party DAW/editor compatibility still needs testing in your
+chosen host.
+
+To run the same host checks against a packaged binary, build the bundles and
+set `MX44_CLAP_BINARY` to the `.clap` file on Linux, or to
+`target/bundled/Mx44 Rust.clap/Contents/MacOS/Mx44 Rust` on macOS:
+
+```sh
+MX44_CLAP_BINARY="/absolute/path/to/plugin/binary" \
+  cargo test -p mx44-plugin --test clap_host packaged_clap -- --ignored
+```
 
 ## Attribution and license
 
@@ -179,4 +254,8 @@ Inspired by [Mx44](https://github.com/linuxmao-org/Mx44), originally by
 **James Morris**. The local C/GTK2 source was consulted for the synthesis
 architecture and envelope design. No original binary patches are bundled.
 
-Distributed under **GPL-2.0-or-later**, consistent with Mx44. See `COPYING`.
+The standalone and shared DSP are **GPL-2.0-or-later**, consistent with Mx44;
+see `COPYING`. The `mx44-plugin` package and its combined VST3/CLAP binaries are
+**GPL-3.0-or-later**; see `COPYING-GPL3`. NIH-plug itself is ISC-licensed, but
+its VST3 bindings require GPLv3-compatible distribution. The shared DSP's
+"or later" license permits its inclusion in these GPLv3 plugin binaries.
