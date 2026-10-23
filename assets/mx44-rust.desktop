@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Mx44 Rust
+GenericName=Matrix Synthesizer
+Comment=Four-operator FM/AM matrix synthesizer
+Exec=mx44-rust
+TryExec=mx44-rust
+Icon=mx44-rust
+Terminal=false
+Categories=AudioVideo;Audio;Midi;
+Keywords=synthesizer;FM;AM;MIDI;audio;
+StartupNotify=true
+StartupWMClass=mx44-rust

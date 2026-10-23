@@ -1,3 +1,4 @@
+mod icon;
 mod runtime;
 mod ui;
 

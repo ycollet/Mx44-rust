@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title description">
+  <title id="title">Mx44 Rust</title>
+  <desc id="description">Four connected synthesizer operators surrounding an audio waveform.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#192d48"/>
+      <stop offset="1" stop-color="#090f20"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#67e8f9"/>
+      <stop offset="1" stop-color="#a7f3d0"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#background)" stroke="#34506c" stroke-width="4"/>
+  <g fill="none" stroke="#41617e" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M70 66H186V190H70Z"/>
+    <path d="M70 66L186 190M186 66L70 190"/>
+  </g>
+  <path d="M38 128H69C80 128 79 100 91 100S104 156 117 156S130 100 143 100S156 156 169 156S179 128 191 128H218"
+        fill="none" stroke="#090f20" stroke-width="19" stroke-linecap="round"/>
+  <path d="M38 128H69C80 128 79 100 91 100S104 156 117 156S130 100 143 100S156 156 169 156S179 128 191 128H218"
+        fill="none" stroke="url(#signal)" stroke-width="10" stroke-linecap="round"/>
+  <g stroke="#0b1528" stroke-width="5">
+    <circle cx="70" cy="66" r="18" fill="#67e8f9"/>
+    <circle cx="186" cy="66" r="18" fill="#67e8f9"/>
+    <circle cx="70" cy="190" r="18" fill="#67e8f9"/>
+    <circle cx="186" cy="190" r="18" fill="#fbad61"/>
+  </g>
+  <g fill="#0f2238">
+    <circle cx="70" cy="66" r="6"/>
+    <circle cx="186" cy="66" r="6"/>
+    <circle cx="70" cy="190" r="6"/>
+    <circle cx="186" cy="190" r="6"/>
+  </g>
+</svg>

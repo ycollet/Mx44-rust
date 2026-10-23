@@ -55,6 +55,8 @@ pub fn run(session: Session, audio: Audio, save_path: PathBuf) -> Result<Session
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("Mx44 Rust - Matrix Synthesizer")
+            .with_app_id(crate::icon::APP_ID)
+            .with_icon(crate::icon::window_icon()?)
             .with_inner_size([1440.0, 940.0])
             .with_min_inner_size([960.0, 640.0]),
         ..Default::default()
@@ -63,6 +65,8 @@ pub fn run(session: Session, audio: Audio, save_path: PathBuf) -> Result<Session
         "Mx44 Rust",
         options,
         Box::new(move |cc| {
+            #[cfg(target_os = "macos")]
+            crate::icon::set_dock_icon()?;
             cc.egui_ctx.set_visuals(egui::Visuals::dark());
             let patch_name = session.patches[session.programs[0] as usize].name.clone();
             Ok(Box::new(Editor {

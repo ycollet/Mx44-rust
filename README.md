@@ -55,6 +55,33 @@ mx44-rust
 Build the release profile for actual playing; debug builds are not intended for
 low-latency use. The output device supplies the live sample rate and buffer size.
 
+### Standalone icon and Linux desktop launcher
+
+The scalable application icon is `assets/mx44-rust.svg`: four connected operators
+and an audio waveform. A derived 512-pixel PNG is embedded in the standalone
+binary for window icons on supported desktops and the macOS Dock. No external
+image files or SVG renderer are needed to run the application.
+
+On Linux, install the SVG and launcher after `cargo install --path .`:
+
+```sh
+data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
+install -Dm644 assets/mx44-rust.svg "$data_home/icons/hicolor/scalable/apps/mx44-rust.svg"
+install -Dm644 assets/mx44-rust.desktop "$data_home/applications/mx44-rust.desktop"
+```
+
+The launcher and window use the same `mx44-rust` application ID for desktop
+grouping. Ensure `mx44-rust` is in your desktop session's `PATH`; otherwise set
+`Exec` and `TryExec` in the installed launcher to the binary's absolute path.
+Linux desktop integration has not yet been verified on a Linux host.
+
+After editing the SVG, regenerate the checked-in PNG with `rsvg-convert`
+(from librsvg), then rebuild:
+
+```sh
+rsvg-convert --width 512 --height 512 --output assets/mx44-rust.png assets/mx44-rust.svg
+```
+
 ## Playing and MIDI
 
 By default the synth creates a virtual MIDI input named **Mx44 Rust**. On Linux,
