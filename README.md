@@ -134,10 +134,48 @@ mx44-rust --load-from ./my-bank.json --save-to ./edited-bank.json
 ```
 
 An explicit `--load-from` requires `--save-to`, except for read-only rendering.
-The original C synth's binary `.mx44patch` files are **not compatible**. The old
-file format, exact fixed-point oscillator behavior, microtonal temperaments,
-GS envelope controllers and original LFO/waveshaping modes are not ported.
+The original C synth's binary `.mx44patch` files must be converted first; they
+cannot be loaded directly as JSON. Exact fixed-point oscillator behavior,
+microtonal temperaments, GS envelope controllers and original LFO/waveshaping
+modes are not ported.
 This instrument is deliberately similar in architecture, not identical in sound.
+
+### Importing original Mx44 banks
+
+An approximate conversion of the supplied Mx44 `data/mx44patch` bank is included
+in `presets/mx44-legacy.json`. Original preset data is from Jens M Andreasen's
+Mx44. Open it without overwriting the bundled copy:
+
+```sh
+cargo run --release -- --load-from presets/mx44-legacy.json --save-to my-legacy-session.json
+```
+
+Convert another original bank without opening audio, MIDI or a window:
+
+```sh
+cargo run --release -- --import-legacy ../Mx44_clone/data/mx44patch \
+  --save-to my-imported-bank.json
+```
+
+The importer reads little-endian 480-byte records: either a 128-preset bank
+(61,440 bytes), or a bank with 16 editable channel sounds, selected programs and
+mono flags (69,152 bytes), optionally followed by shruti/temperament data
+(69,164/69,165 bytes). Other sizes are rejected. `--save-to` is required and may
+replace an existing destination session; the original input cannot be the
+destination. Conversion does not change the default user session.
+
+Names, operator tuning, PM/AM routes, mixer proportions and envelope targets are
+translated. Editable channel sounds are preserved separately from their stored
+presets. Detune and envelope timing are approximated at MIDI A4, velocity 100,
+assuming the original ran at 48 kHz. Use `--sample-rate 44100` during import if
+the source used 44.1 kHz; the binary format does not store its sample rate.
+
+Conversion prints warnings for clipped values and unsupported features,
+including initial phase/envelope levels, inverse velocity, keyboard scaling,
+intonation, operator shaping/filtering, higher secondary harmonics, mono/legato
+and microtonal tuning. The dual-rate LFO becomes an average sine LFO.
+Reserved original FX fields do not enable new drive/delay effects.
+These are playable approximations, **not sound-identical presets**.
 
 ## Offline rendering
 
@@ -195,6 +233,10 @@ stereo output and 32 voices, receives notes/controllers on all 16 MIDI channels,
 and uses **one shared sound** across those channels. Use separate plugin
 instances for independent sounds. There is no audio input, device selector,
 standalone keyboard or automatic access to the standalone session file.
+The plugin uses one shared stereo delay bus to reduce per-instance memory:
+about 0.55 MiB at 48 kHz or 2.20 MiB at 192 kHz. MIDI CC120 stops voices on
+its channel and clears **all plugin echoes**; other channels' voices continue.
+The standalone retains independent per-channel delays.
 
 The plugin exposes 131 sound/master parameters for host automation, with stable
 IDs and sample-timed MIDI. Parameter automation is applied at block boundaries;
@@ -227,7 +269,14 @@ The DSP and MIDI parser are in the library; the audio/MIDI runtime and editor
 are separate binary modules. The audio callback owns its synthesizer and reads
 a bounded, allocation-free command queue; UI/MIDI producers never lock the
 audio callback. Queue overflow is reported and requests emergency all-sound-off
-to avoid stuck notes. Oscillators are not oversampled: aggressive modulation
+to avoid stuck notes. Oscillator/pan/effect coefficients are cached and refreshed
+on sound/controller changes; SoftSaw derives its harmonics from one sine/cosine
+pair. Panic and CC120 invalidate delay history without
+clearing large buffers on the audio thread. Dormant delays skip processing;
+feedback below -240 dBFS is flushed to zero so tails eventually finish.
+The plugin permits host suspension only after all voices, delay history and
+gain smoothing have finished; its LFOs pause while the host suspends processing.
+Oscillators are not oversampled: aggressive modulation
 and high harmonics can alias. A final soft limiter bounds the output but is
 not a substitute for conservative monitoring volume.
 

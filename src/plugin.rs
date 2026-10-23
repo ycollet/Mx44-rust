@@ -218,7 +218,7 @@ pub struct PluginEngine {
 impl PluginEngine {
     pub fn new(sample_rate: u32) -> Self {
         Self {
-            synth: Synth::new(sample_rate, 32, &Session::default()),
+            synth: Synth::with_shared_delay(sample_rate, 32, &Session::default()),
             previous: None,
         }
     }
@@ -252,6 +252,10 @@ impl PluginEngine {
     }
     pub fn next_frame(&mut self) -> [f32; 2] {
         self.synth.next_frame()
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.synth.is_active()
     }
 }
 
@@ -337,5 +341,45 @@ mod tests {
         assert!((0..1000).any(|_| plugin.next_frame()[0].abs() > 0.01));
         plugin.choke(15, 60);
         assert_eq!(plugin.next_frame(), [0.0; 2]);
+    }
+
+    #[test]
+    fn silent_gaps_keep_pending_echoes_alive_until_history_is_empty() {
+        let mut plugin = PluginEngine::new(8000);
+        plugin.set_values(&encode(
+            &Sound {
+                delay_time: 1.5,
+                delay_feedback: 0.0,
+                delay_mix: 1.0,
+                ..Sound::default()
+            },
+            0.5,
+        ));
+        assert!(!plugin.is_active());
+        plugin.event(MidiEvent::NoteOn {
+            channel: 15,
+            key: 60,
+            velocity: 100,
+        });
+        for _ in 0..160 {
+            plugin.next_frame();
+        }
+        plugin.choke(15, 60);
+        for _ in 0..1000 {
+            assert_eq!(plugin.next_frame(), [0.0; 2]);
+            assert!(plugin.is_active());
+        }
+        let mut heard_echo = false;
+        for _ in 0..24_000 {
+            heard_echo |= plugin.next_frame()[0].abs() > 0.001;
+        }
+        assert!(heard_echo);
+        assert!(!plugin.is_active());
+        plugin.event(MidiEvent::NoteOn {
+            channel: 0,
+            key: 67,
+            velocity: 110,
+        });
+        assert!(plugin.is_active());
     }
 }

@@ -357,7 +357,7 @@ impl Session {
         ensure!(bytes.len() <= 4 * 1024 * 1024, "session file exceeds 4 MiB");
         let session: Self = serde_json::from_slice(&bytes).with_context(|| {
             format!(
-                "parse {} (Mx44 C binary patches are not supported)",
+                "parse {} (use --import-legacy to convert Mx44 C binary patches)",
                 path.display()
             )
         })?;

@@ -5,6 +5,7 @@ use anyhow::{Context, Result, ensure};
 use clap::Parser;
 use mx44_rust::{
     engine::Synth,
+    legacy,
     midi::MidiEvent,
     patch::{CHANNELS, Session},
 };
@@ -28,6 +29,12 @@ struct Options {
     /// Read a Rust JSON session (never the original C binary format)
     #[arg(long)]
     load_from: Option<PathBuf>,
+    /// Convert a little-endian Mx44 C bank to JSON, without opening devices
+    #[arg(long, requires = "save_to", conflicts_with_all = [
+        "load_from", "render", "console", "program", "list_audio", "list_midi",
+        "voices", "no_midi", "midi_port", "audio_device", "duration"
+    ])]
+    import_legacy: Option<PathBuf>,
     /// Write session here instead of the default user state
     #[arg(long)]
     save_to: Option<PathBuf>,
@@ -50,7 +57,7 @@ struct Options {
     /// Offline render length, including release tail, in seconds (2..=600)
     #[arg(long, default_value = "8")]
     duration: f32,
-    /// Offline sample rate; live audio follows the output device
+    /// Offline rate, or original rate for legacy conversion; live audio follows the device
     #[arg(long, default_value = "48000", value_parser = clap::value_parser!(u32).range(8000..=192000))]
     sample_rate: u32,
     /// Initial preset on channel 1, numbered 1..=128
@@ -121,6 +128,41 @@ fn render(options: &Options, session: &Session, path: &std::path::Path) -> Resul
 
 fn run() -> Result<()> {
     let options = Options::parse();
+    if let Some(source) = &options.import_legacy {
+        let target = options
+            .save_to
+            .as_ref()
+            .context("--import-legacy requires --save-to")?;
+        let source_path = std::fs::canonicalize(source)
+            .with_context(|| format!("read legacy bank {}", source.display()))?;
+        let imported = legacy::load(source, options.sample_rate)?;
+        ensure!(
+            target.file_name().is_some(),
+            "import output path must name a file"
+        );
+        let parent = target
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or(std::path::Path::new("."));
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("create import directory {}", parent.display()))?;
+        match std::fs::canonicalize(target) {
+            Ok(path) => ensure!(
+                path != source_path,
+                "cannot overwrite the original legacy bank"
+            ),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(error).with_context(|| format!("resolve {}", target.display()));
+            }
+        }
+        imported.session.save(target)?;
+        for warning in &imported.warnings {
+            eprintln!("Import warning: {warning}");
+        }
+        println!("Imported 128 legacy presets into {}", target.display());
+        return Ok(());
+    }
     if options.list_audio {
         return runtime::list_audio();
     }

@@ -269,7 +269,11 @@ impl Plugin for Mx44Plugin {
             dispatch(engine, remaining);
             event = context.next_event();
         }
-        ProcessStatus::KeepAlive
+        if engine.is_active() || self.params.controls[0].value.smoothed.is_smoothing() {
+            ProcessStatus::KeepAlive
+        } else {
+            ProcessStatus::Normal
+        }
     }
 }
 

@@ -238,9 +238,19 @@ fn check_plugin(clap_entry: &clap_plugin_entry) {
             in_events: &input_events,
             out_events: &output_events,
         };
-        assert_ne!(
+        let mut empty = Vec::new();
+        let empty_input = input(&mut empty);
+        process.in_events = &empty_input;
+        assert_eq!(
             ((*plugin).process.unwrap())(plugin, &process),
-            CLAP_PROCESS_ERROR
+            CLAP_PROCESS_CONTINUE_IF_NOT_QUIET
+        );
+        assert!(left.iter().chain(right.iter()).all(|v| *v == 0.0));
+        process.in_events = &input_events;
+        process.steady_time += 1024;
+        assert_eq!(
+            ((*plugin).process.unwrap())(plugin, &process),
+            CLAP_PROCESS_CONTINUE
         );
         assert!(left[..128].iter().all(|v| *v == 0.0));
         assert!(left[128..].iter().any(|v| v.abs() > 0.01));
@@ -290,6 +300,38 @@ fn check_plugin(clap_entry: &clap_plugin_entry) {
         );
         assert!(left[..64].iter().any(|v| v.abs() > 0.001));
         assert!(left[64..].iter().all(|v| *v == 0.0));
+        ((*plugin).reset.unwrap())(plugin);
+        process.in_events = &empty_input;
+        process.steady_time += 1024;
+        assert_eq!(
+            ((*plugin).process.unwrap())(plugin, &process),
+            CLAP_PROCESS_CONTINUE_IF_NOT_QUIET
+        );
+        assert!(left.iter().chain(right.iter()).all(|v| *v == 0.0));
+        let master_change = clap_event_param_value {
+            header: header::<clap_event_param_value>(0, CLAP_EVENT_PARAM_VALUE),
+            value: 0.0,
+            ..change
+        };
+        events = vec![&master_change.header as *const _];
+        input_events = input(&mut events);
+        process.in_events = &input_events;
+        process.frames_count = 128;
+        // Let the 10 ms gain ramp finish even when there are no voices or echoes.
+        for block in 0..4 {
+            process.steady_time += 128;
+            let status = ((*plugin).process.unwrap())(plugin, &process);
+            assert_eq!(
+                status,
+                if block < 3 {
+                    CLAP_PROCESS_CONTINUE
+                } else {
+                    CLAP_PROCESS_CONTINUE_IF_NOT_QUIET
+                }
+            );
+            assert!(left[..128].iter().chain(&right[..128]).all(|v| *v == 0.0));
+            process.in_events = &empty_input;
+        }
         ((*plugin).stop_processing.unwrap())(plugin);
         ((*plugin).deactivate.unwrap())(plugin);
         drop(instance);
