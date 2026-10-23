@@ -140,6 +140,28 @@ microtonal temperaments, GS envelope controllers and original LFO/waveshaping
 modes are not ported.
 This instrument is deliberately similar in architecture, not identical in sound.
 
+### Audio engine differences from the original
+
+Both engines use four operators, PM/AM matrices and eight-stage envelopes, but
+the Rust engine is a new implementation, **not an emulation**:
+
+| Area | Original Mx44 | Rust engine |
+|---|---|---|
+| Arithmetic | Fixed-point/MMX arithmetic with integer wrapping and saturation | Floating-point DSP with different clipping behavior |
+| Oscillators | Parabolic wave components, self-shaping and selectable secondary harmonics | Simplified Mx approximation, sine, triangle and soft saw; octave mixing does not reproduce every original harmonic mode |
+| Modulation | Original fixed-point PM/AM scaling, saturation and operator-specific wheel assignments | Different scaling, clipping and controller mappings; feedback-heavy sounds can change significantly |
+| Envelopes | Nonzero initial levels, key/velocity-dependent timing and level scaling | Envelopes start at zero, with different timing and velocity response; original keyboard scaling is not implemented |
+| LFO | Two rates, evolving depth and operator-specific phases | A simpler sine LFO shared by operators on each MIDI channel |
+| Processing | Per-operator low-pass filtering and resonant waveshaping | Original filtering/shaping is absent; drive and stereo delay are separate new effects |
+| Tuning | Original temperaments, shruti settings and additive frequency offsets | Equal temperament, frequency ratios and cents-based detuning |
+
+Simple tones may be reasonably close, while complex original presets can sound
+very different. Importing preserves their approximate structure and settings,
+not their exact sound. Floating point is not inherently less accurate or lower
+quality: the largest audible differences come from oscillator algorithms,
+nonlinear behavior and control mappings. Closer reproduction would require a
+dedicated legacy-compatible synthesis mode, which is not currently implemented.
+
 ### Importing original Mx44 banks
 
 An approximate conversion of the supplied Mx44 `data/mx44patch` bank is included
