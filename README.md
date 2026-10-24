@@ -252,8 +252,8 @@ cargo xtask bundle mx44-plugin --release
 Bundles are written to:
 
 ```text
-target/bundled/Mx44 Rust.vst3
-target/bundled/Mx44 Rust.clap
+target/bundled/mx44-rust.vst3
+target/bundled/mx44-rust.clap
 ```
 
 The build targets the current operating system and CPU architecture; build on
@@ -273,8 +273,8 @@ For example, on Linux:
 
 ```sh
 mkdir -p ~/.vst3 ~/.clap
-cp -R "target/bundled/Mx44 Rust.vst3" ~/.vst3/
-cp -R "target/bundled/Mx44 Rust.clap" ~/.clap/
+cp -R "target/bundled/mx44-rust.vst3" ~/.vst3/
+cp -R "target/bundled/mx44-rust.clap" ~/.clap/
 ```
 
 Load **Mx44 Rust** as an instrument on a MIDI track. Each instance provides
@@ -338,7 +338,7 @@ chosen host.
 
 To run the same host checks against a packaged binary, build the bundles and
 set `MX44_CLAP_BINARY` to the `.clap` file on Linux, or to
-`target/bundled/Mx44 Rust.clap/Contents/MacOS/Mx44 Rust` on macOS:
+`target/bundled/mx44-rust.clap/Contents/MacOS/mx44-rust` on macOS:
 
 ```sh
 MX44_CLAP_BINARY="/absolute/path/to/plugin/binary" \
