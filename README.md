@@ -5,6 +5,10 @@ This is a new implementation, not an emulation or a source-compatible port.
 It replaces GTK2, x86 MMX and the JACK-only audio path with an egui editor,
 portable floating-point DSP, CPAL audio and midir MIDI input.
 
+## Screenshot
+
+![screenshot](mx44-rust.png)
+
 ## Features
 
 - Four operators per voice, each with ratio, detune, velocity response, pan,
