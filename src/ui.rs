@@ -3,13 +3,16 @@ use anyhow::{Context, Result};
 use eframe::egui::{self, Color32, Key, RichText, Slider};
 use mx44_rust::{
     midi::MidiEvent,
-    patch::{CHANNELS, Operator, Session, Sound, Waveform},
+    patch::{CHANNELS, Operator, Session, Sound},
 };
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex, atomic::Ordering},
     time::Duration,
 };
+
+#[path = "sound_editor.rs"]
+mod sound_editor;
 
 const KEYS: [Key; 17] = [
     Key::A,
@@ -175,8 +178,7 @@ impl Editor {
 
     fn toolbar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.heading(RichText::new("Mx44").color(Color32::from_rgb(110, 210, 190)));
-            ui.label("RUST / FOUR-OPERATOR MATRIX SYNTH");
+            sound_editor::heading(ui);
             ui.separator();
             let mut master = self.session.master;
             if ui
@@ -314,139 +316,6 @@ fn note_name(note: u8) -> String {
     format!("{}{}", names[(note % 12) as usize], note as i16 / 12 - 1)
 }
 
-fn operator(ui: &mut egui::Ui, index: usize, op: &mut Operator, clipboard: &mut Option<Operator>) {
-    ui.push_id(index, |ui| {
-        ui.group(|ui| {
-            ui.horizontal(|ui| {
-                ui.heading(format!("Operator {}", index + 1));
-                if ui.small_button("Copy").clicked() {
-                    *clipboard = Some(*op);
-                }
-                if ui
-                    .add_enabled(clipboard.is_some(), egui::Button::new("Paste").small())
-                    .clicked()
-                    && let Some(value) = clipboard
-                {
-                    *op = *value;
-                }
-            });
-            egui::ComboBox::from_id_salt("wave")
-                .selected_text(format!("{:?}", op.wave))
-                .show_ui(ui, |ui| {
-                    for wave in [
-                        Waveform::Sine,
-                        Waveform::Mx,
-                        Waveform::Triangle,
-                        Waveform::SoftSaw,
-                    ] {
-                        ui.selectable_value(&mut op.wave, wave, format!("{wave:?}"));
-                    }
-                });
-            ui.add(
-                Slider::new(&mut op.ratio, 0.125..=32.0)
-                    .logarithmic(true)
-                    .text("Ratio"),
-            );
-            ui.add(Slider::new(&mut op.detune, -100.0..=100.0).text("Cents"));
-            ui.add(Slider::new(&mut op.level, 0.0..=1.0).text("Output"));
-            ui.add(Slider::new(&mut op.pan, -1.0..=1.0).text("Pan"));
-            ui.add(Slider::new(&mut op.velocity, 0.0..=1.0).text("Velocity"));
-            ui.add(Slider::new(&mut op.octave_mix, 0.0..=1.0).text("Octave mix"));
-            ui.separator();
-            ui.label("Envelope: time (seconds) / level");
-            ui.checkbox(&mut op.envelope.loop_sustain, "Loop sustain stages 5-6");
-            egui::Grid::new("envelope").striped(true).show(ui, |ui| {
-                for stage in 0..8 {
-                    let name = match stage {
-                        0 | 1 => "Attack",
-                        2 | 3 => "Decay",
-                        4 | 5 => "Sustain",
-                        _ => "Release",
-                    };
-                    ui.label(format!("{} {name}", stage + 1));
-                    ui.add(
-                        egui::DragValue::new(&mut op.envelope.times[stage])
-                            .speed(0.005)
-                            .range(0.001..=10.0)
-                            .suffix(" s"),
-                    );
-                    if stage == 7 {
-                        ui.label("0.00");
-                    } else {
-                        ui.add(
-                            egui::DragValue::new(&mut op.envelope.levels[stage])
-                                .speed(0.005)
-                                .range(0.0..=1.0)
-                                .fixed_decimals(2),
-                        );
-                    }
-                    ui.end_row();
-                }
-            });
-            let (rect, _) = ui.allocate_exact_size(
-                egui::vec2(ui.available_width().min(260.0), 55.0),
-                egui::Sense::hover(),
-            );
-            let mut points = vec![rect.left_bottom()];
-            let total = op.envelope.times.iter().sum::<f32>();
-            let mut time = 0.0;
-            for stage in 0..8 {
-                time += op.envelope.times[stage];
-                points.push(egui::pos2(
-                    rect.left() + rect.width() * time / total,
-                    rect.bottom() - rect.height() * op.envelope.levels[stage],
-                ));
-            }
-            ui.painter().add(egui::Shape::line(
-                points,
-                egui::Stroke::new(1.5_f32, Color32::from_rgb(110, 210, 190)),
-            ));
-        });
-    });
-}
-
-fn matrix(ui: &mut egui::Ui, name: &str, values: &mut [[f32; 4]; 4], max: f32) {
-    ui.group(|ui| {
-        ui.strong(name);
-        ui.label("Rows = destination, columns = source");
-        egui::Grid::new(name).striped(true).show(ui, |ui| {
-            ui.label("To / From");
-            for src in 0..4 {
-                ui.label(format!("Op {}", src + 1));
-            }
-            ui.end_row();
-            for (dst, row) in values.iter_mut().enumerate() {
-                ui.label(format!("Op {}", dst + 1));
-                for value in row {
-                    ui.add(
-                        egui::DragValue::new(value)
-                            .speed(0.01)
-                            .range(-max..=max)
-                            .fixed_decimals(2),
-                    );
-                }
-                ui.end_row();
-            }
-        });
-    });
-}
-
-fn effects(ui: &mut egui::Ui, sound: &mut Sound) {
-    ui.group(|ui| {
-        ui.strong("LFO / stereo effects");
-        ui.add(
-            Slider::new(&mut sound.lfo_rate, 0.05..=20.0)
-                .logarithmic(true)
-                .text("LFO Hz"),
-        );
-        ui.add(Slider::new(&mut sound.lfo_depth, 0.0..=1.0).text("Vibrato (semitones)"));
-        ui.add(Slider::new(&mut sound.drive, 0.0..=1.0).text("Drive"));
-        ui.add(Slider::new(&mut sound.delay_time, 0.01..=1.5).text("Delay seconds"));
-        ui.add(Slider::new(&mut sound.delay_feedback, 0.0..=0.95).text("Feedback"));
-        ui.add(Slider::new(&mut sound.delay_mix, 0.0..=1.0).text("Delay mix"));
-    });
-}
-
 impl eframe::App for Editor {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.sync_programs();
@@ -480,23 +349,11 @@ impl eframe::App for Editor {
         });
         let before = self.session.channels[self.channel];
         egui::CentralPanel::default().show(ctx, |ui| {
-            egui::ScrollArea::both().show(ui, |ui| {
-                ui.set_min_width(900.0);
-                let sound = &mut self.session.channels[self.channel];
-                ui.columns(4, |columns| {
-                    for (i, column) in columns.iter_mut().enumerate() {
-                        operator(column, i, &mut sound.operators[i], &mut self.clipboard);
-                    }
-                });
-                ui.add_space(12.0);
-                ui.horizontal_top(|ui| {
-                    matrix(ui, "Phase modulation (radians)", &mut sound.pm, 8.0);
-                    matrix(ui, "Amplitude modulation", &mut sound.am, 1.0);
-                    effects(ui, sound);
-                });
-                ui.label("All 16 routes include one-sample-delayed feedback. Operator output level does not affect its modulation send.");
-                ui.label("Edits update held notes; envelope settings apply to new notes. Store in preset before switching programs.");
-            });
+            sound_editor::show(
+                ui,
+                &mut self.session.channels[self.channel],
+                &mut self.clipboard,
+            );
         });
         let sound = self.session.channels[self.channel];
         if sound != before && !self.send(Command::Sound(self.channel, sound)) {
@@ -513,29 +370,5 @@ impl Drop for Editor {
             Ok(mut result) => *result = Some(self.session.clone()),
             Err(error) => eprintln!("Could not return editor session: {error}"),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn editor_controls_draw_without_a_window() {
-        let ctx = egui::Context::default();
-        let mut sound = Sound::default();
-        let mut clipboard = None;
-        let output = ctx.run(egui::RawInput::default(), |ctx| {
-            egui::CentralPanel::default().show(ctx, |ui| {
-                for i in 0..4 {
-                    operator(ui, i, &mut sound.operators[i], &mut clipboard);
-                }
-                matrix(ui, "PM", &mut sound.pm, 8.0);
-                matrix(ui, "AM", &mut sound.am, 1.0);
-                effects(ui, &mut sound);
-            });
-        });
-        assert!(!output.shapes.is_empty());
-        sound.validate().unwrap();
     }
 }

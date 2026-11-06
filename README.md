@@ -296,8 +296,12 @@ IDs and sample-timed MIDI. Parameter automation is applied at block boundaries;
 sample-accurate parameter automation is deliberately disabled because the pinned
 NIH-plug CLAP wrapper applies a block's first automation event early.
 Master gain is smoothed.
-All operator settings, both matrices, envelopes, LFO and effects are editable
-in its embedded editor and the host's generic parameter editor. The final
+The embedded editor shares the standalone's four operator panels, envelope
+graphs, operator Copy/Paste, modulation grids, effects controls and dark styling.
+Its default window size also matches the standalone. The shared widget source
+is compiled with each frontend's egui version, without adding standalone audio
+or window-runtime dependencies to the plugin.
+All sound settings remain available in the host's generic parameter editor. The final
 envelope level remains fixed at zero. **Random** changes the sound through the
 host's parameter system without changing master volume; the six factory sounds
 are available from **Load factory sound**. **PANIC** clears voices and effects.

@@ -1,14 +1,17 @@
 use mx44_rust::{
     midi::MidiEvent,
     patch::{Session, Sound},
-    plugin::{self, Kind, PARAM_COUNT, ParameterSpec, PluginEngine, Values},
+    plugin::{self, Kind, PluginEngine, Values},
 };
 use nih_plug::prelude::*;
-use nih_plug_egui::{EguiState, create_egui_editor, egui, widgets};
+use nih_plug_egui::{EguiState, create_egui_editor, egui};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
+
+#[path = "../../../src/sound_editor.rs"]
+mod sound_editor;
 
 #[derive(Params)]
 struct Control {
@@ -73,7 +76,7 @@ impl Default for SynthParams {
             })
             .collect();
         Self {
-            editor: EguiState::from_size(1280, 850),
+            editor: EguiState::from_size(1440, 940),
             controls,
         }
     }
@@ -84,12 +87,13 @@ impl SynthParams {
         std::array::from_fn(|i| self.controls[i].value.value())
     }
 
-    fn set_sound(&self, setter: &ParamSetter, sound: &Sound) {
-        let values = plugin::encode(sound, self.controls[0].value.value());
-        for (control, value) in self.controls.iter().zip(values).skip(1) {
-            setter.begin_set_parameter(&control.value);
-            setter.set_parameter(&control.value, value);
-            setter.end_set_parameter(&control.value);
+    fn set_edited_values(&self, setter: &ParamSetter, before: &Values, after: &Values) {
+        for (index, control) in self.controls.iter().enumerate() {
+            if before[index] != after[index] {
+                setter.begin_set_parameter(&control.value);
+                setter.set_parameter(&control.value, after[index]);
+                setter.end_set_parameter(&control.value);
+            }
         }
     }
 }
@@ -108,22 +112,6 @@ impl Default for Mx44Plugin {
             panic_requested: Arc::new(AtomicBool::new(false)),
         }
     }
-}
-
-fn parameter_ui(
-    ui: &mut egui::Ui,
-    params: &SynthParams,
-    specs: &[ParameterSpec],
-    setter: &ParamSetter,
-    index: usize,
-) {
-    ui.push_id(index, |ui| {
-        ui.label(&specs[index].name);
-        ui.add(widgets::ParamSlider::for_param(
-            &params.controls[index].value,
-            setter,
-        ));
-    });
 }
 
 impl Plugin for Mx44Plugin {
@@ -151,62 +139,51 @@ impl Plugin for Mx44Plugin {
     fn editor(&mut self, _executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
         let params = self.params.clone();
         let panic_requested = self.panic_requested.clone();
-        let specs = plugin::parameter_specs();
         let factory = Session::default();
         create_egui_editor(
             params.editor.clone(),
-            (),
-            |_, _| {},
-            move |ctx, setter, _| {
-                egui::CentralPanel::default().show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.heading("Mx44 Rust");
-                    ui.label("Master");
-                    ui.add(widgets::ParamSlider::for_param(&params.controls[0].value, setter));
-                    if ui.button("Random").on_hover_text("Randomize the sound, keeping master volume").clicked() {
-                        params.set_sound(setter, &Sound::random(&mut rand::rng()));
-                    }
-                    egui::ComboBox::from_id_salt("factory")
-                        .selected_text("Load factory sound")
-                        .show_ui(ui, |ui| {
-                            for patch in &factory.patches[..6] {
-                                if ui.button(&patch.name).clicked() {
-                                    params.set_sound(setter, &patch.sound);
+            None,
+            |ctx, _| ctx.set_visuals(egui::Visuals::dark()),
+            move |ctx, setter, clipboard| {
+                // Refresh from the host each frame so automation and state restores stay visible.
+                let before = params.values();
+                let (mut sound, mut master) = plugin::decode(&before);
+                egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        sound_editor::heading(ui);
+                        ui.separator();
+                        ui.add(egui::Slider::new(&mut master, 0.0..=1.0).text("Master"));
+                        if ui
+                            .button("Random")
+                            .on_hover_text("Randomize the sound, keeping master volume")
+                            .clicked()
+                        {
+                            sound = Sound::random(&mut rand::rng());
+                        }
+                        if ui.button("PANIC").clicked() {
+                            panic_requested.store(true, Ordering::Release);
+                        }
+                    });
+                    ui.horizontal(|ui| {
+                        egui::ComboBox::from_id_salt("factory")
+                            .selected_text("Load factory sound")
+                            .show_ui(ui, |ui| {
+                                for patch in &factory.patches[..6] {
+                                    if ui.button(&patch.name).clicked() {
+                                        sound = patch.sound;
+                                    }
                                 }
-                            }
-                        });
-                    if ui.button("PANIC").clicked() {
-                        panic_requested.store(true, Ordering::Release);
-                    }
-                });
-                ui.label("32 voices / stereo / host MIDI on all channels / settings saved with your project");
-                ui.separator();
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    ui.columns(4, |columns| {
-                        for (op, column) in columns.iter_mut().enumerate() {
-                            column.heading(format!("Operator {}", op + 1));
-                            for index in (1 + op * 23)..(1 + (op + 1) * 23) {
-                                parameter_ui(column, &params, &specs, setter, index);
-                            }
-                            column.label("Final release level: 0");
-                        }
+                            });
+                        ui.label("Save your host project or preset to keep this sound.");
                     });
-                    ui.separator();
-                    ui.columns(3, |columns| {
-                        for (matrix, column) in columns[..2].iter_mut().enumerate() {
-                            column.heading(if matrix == 0 { "Phase modulation" } else { "Amplitude modulation" });
-                            for index in (93 + matrix * 16)..(93 + (matrix + 1) * 16) {
-                                parameter_ui(column, &params, &specs, setter, index);
-                            }
-                        }
-                        columns[2].heading("LFO / effects");
-                        for index in 125..PARAM_COUNT {
-                            parameter_ui(&mut columns[2], &params, &specs, setter, index);
-                        }
-                    });
-                    ui.label("Envelope edits apply to new notes. All other sound edits affect held notes.");
                 });
-            });
+                egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
+                    ui.label("32 voices / stereo / host MIDI on all channels / settings saved with your project");
+                });
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    sound_editor::show(ui, &mut sound, clipboard);
+                });
+                params.set_edited_values(setter, &before, &plugin::encode(&sound, master));
             },
         )
     }
@@ -352,6 +329,7 @@ mod vst3_export {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mx44_rust::plugin::PARAM_COUNT;
     use std::collections::HashSet;
 
     #[test]
