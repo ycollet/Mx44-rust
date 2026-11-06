@@ -1,10 +1,24 @@
 // Compiled by both frontends, which currently use different egui versions.
 use super::egui::{self, Color32, RichText, Slider};
-use mx44_rust::patch::{Operator, Sound, Waveform};
+use mx44_rust::patch::{Operator, Patch, Sound, Waveform};
 
 pub fn heading(ui: &mut egui::Ui) {
     ui.heading(RichText::new("Mx44").color(Color32::from_rgb(110, 210, 190)));
     ui.label("RUST / FOUR-OPERATOR MATRIX SYNTH");
+}
+
+pub fn factory_picker<'a>(ui: &mut egui::Ui, patches: &'a [Patch]) -> Option<&'a Patch> {
+    let mut selected = None;
+    egui::ComboBox::from_id_salt("factory")
+        .selected_text("Load factory sound")
+        .show_ui(ui, |ui| {
+            for patch in patches {
+                if ui.button(&patch.name).clicked() {
+                    selected = Some(patch);
+                }
+            }
+        });
+    selected
 }
 
 pub fn show(ui: &mut egui::Ui, sound: &mut Sound, clipboard: &mut Option<Operator>) {

@@ -139,7 +139,7 @@ impl Plugin for Mx44Plugin {
     fn editor(&mut self, _executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
         let params = self.params.clone();
         let panic_requested = self.panic_requested.clone();
-        let factory = Session::default();
+        let factory = Session::factory_patches();
         create_egui_editor(
             params.editor.clone(),
             None,
@@ -165,15 +165,9 @@ impl Plugin for Mx44Plugin {
                         }
                     });
                     ui.horizontal(|ui| {
-                        egui::ComboBox::from_id_salt("factory")
-                            .selected_text("Load factory sound")
-                            .show_ui(ui, |ui| {
-                                for patch in &factory.patches[..6] {
-                                    if ui.button(&patch.name).clicked() {
-                                        sound = patch.sound;
-                                    }
-                                }
-                            });
+                        if let Some(patch) = sound_editor::factory_picker(ui, &factory) {
+                            sound = patch.sound;
+                        }
                         ui.label("Save your host project or preset to keep this sound.");
                     });
                 });

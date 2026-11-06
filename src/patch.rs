@@ -240,8 +240,8 @@ pub struct Session {
     pub master: f32,
 }
 
-impl Default for Session {
-    fn default() -> Self {
+impl Session {
+    pub fn factory_patches() -> Vec<Patch> {
         let mut patches = Vec::with_capacity(PROGRAMS);
         let init = Sound::default();
         patches.push(Patch {
@@ -306,6 +306,18 @@ impl Default for Session {
             name: "Four drawbars".into(),
             sound: organ,
         });
+        let imported: Vec<Patch> =
+            serde_json::from_str(include_str!("../presets/mx41-factory.json"))
+                .expect("bundled Mx41 factory presets must be valid JSON");
+        patches.extend(imported);
+        patches
+    }
+}
+
+impl Default for Session {
+    fn default() -> Self {
+        let init = Sound::default();
+        let mut patches = Self::factory_patches();
         while patches.len() < PROGRAMS {
             patches.push(Patch {
                 name: format!("Init {:03}", patches.len() + 1),

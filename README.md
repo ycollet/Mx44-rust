@@ -20,7 +20,7 @@ portable floating-point DSP, CPAL audio and midir MIDI input.
 - 16 independent MIDI channels, 128 editable preset slots, 1-256 shared voices,
   sustain pedal, voice stealing, pitch bend, vibrato and channel aftertouch.
 - Stereo operator mixing, per-channel drive and ping-pong delay.
-- Six starter sounds: Mx tone, electric piano, bass, bells, pad and organ.
+- 60 factory sounds: six original starters plus 54 distinct imported Mx41 sounds.
 - Computer/on-screen keyboard, headless MIDI operation and offline WAV rendering.
 - Validated, versioned JSON sessions, saved by temporary-file/rename replacement.
 
@@ -195,6 +195,34 @@ dedicated legacy-compatible synthesis mode, which is not currently implemented.
 
 ### Importing original Mx44 banks
 
+The factory selection includes the six original Rust sounds followed by 54
+distinct, non-empty sounds converted from the
+[LinuxSynths Mx44 preset download](https://www.linuxsynths.com/Mx44PatchesDemos/mx44.html)
+(`mx41patch`). New sessions put these in slots 1-60 and leave slots 61-128
+initialized. Existing session files are never automatically modified.
+**Load factory sound**, available in the standalone and both plugins, also
+makes the complete collection available when using an existing session.
+In the standalone it changes only the selected channel's working sound; use
+**Store in preset** to copy it into a bank slot.
+
+The generated data is `presets/mx41-factory.json`, converted at an assumed
+48 kHz. Of the 128 source slots, 71 have no operator output/envelope and three
+repeat another converted sound exactly. Deduplication compares all converted
+sound settings, not names; different sounds with matching names are retained
+and disambiguated with their original Mx41 slot number.
+Seven sounds are new relative to the existing converted legacy bank: Blush,
+SimpleHorn, MetalBeat, MetalSweep, SlidesUp, StrumOnAWave and GoodOPstart.
+The other 47 already appear there. The source bank's SHA-256 is
+`bae07f8d7ff12926adef54b06e6758268c2dab334469db192d98a4eae6502dac`.
+The original download and edited channel records are not bundled.
+
+**Preset licensing:** LinuxSynths describes this download as its author's
+starter presets but does not state a redistribution license on the source
+page. Attribution does not establish redistribution permission. The imported
+data is not being relicensed under this repository's GPL; obtain permission
+or establish an applicable license before publishing/distributing these
+presets or binaries containing them.
+
 An approximate conversion of the supplied Mx44 `data/mx44patch` bank is included
 in `presets/mx44-legacy.json`. Original preset data is from Jens M Andreasen's
 Mx44. Open it without overwriting the bundled copy:
@@ -303,7 +331,7 @@ is compiled with each frontend's egui version, without adding standalone audio
 or window-runtime dependencies to the plugin.
 All sound settings remain available in the host's generic parameter editor. The final
 envelope level remains fixed at zero. **Random** changes the sound through the
-host's parameter system without changing master volume; the six factory sounds
+host's parameter system without changing master volume; all 60 factory sounds
 are available from **Load factory sound**. **PANIC** clears voices and effects.
 
 Save your host project or a host preset to retain the sound and editor state.

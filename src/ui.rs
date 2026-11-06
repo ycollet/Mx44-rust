@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use eframe::egui::{self, Color32, Key, RichText, Slider};
 use mx44_rust::{
     midi::MidiEvent,
-    patch::{CHANNELS, Operator, Session, Sound},
+    patch::{CHANNELS, Operator, Patch, Session, Sound},
 };
 use std::{
     path::PathBuf,
@@ -39,6 +39,7 @@ const KEY_LABELS: [&str; 17] = [
 
 struct Editor {
     session: Session,
+    factory: Vec<Patch>,
     audio: Audio,
     channel: usize,
     octave: u8,
@@ -74,6 +75,7 @@ pub fn run(session: Session, audio: Audio, save_path: PathBuf) -> Result<Session
             let patch_name = session.patches[session.programs[0] as usize].name.clone();
             Ok(Box::new(Editor {
                 session,
+                factory: Session::factory_patches(),
                 audio,
                 channel: 0,
                 octave: 4,
@@ -201,6 +203,16 @@ impl Editor {
                         self.channel + 1
                     );
                 }
+            }
+            if let Some(patch) = sound_editor::factory_picker(ui, &self.factory).cloned()
+                && self.send(Command::Sound(self.channel, patch.sound))
+            {
+                self.session.channels[self.channel] = patch.sound;
+                self.patch_name = patch.name;
+                self.status = format!(
+                    "Loaded {} on channel {}. Store in preset to keep it in the bank.",
+                    self.patch_name, self.channel + 1
+                );
             }
             if ui.button("PANIC [Esc]").clicked() {
                 self.release_keyboard();
